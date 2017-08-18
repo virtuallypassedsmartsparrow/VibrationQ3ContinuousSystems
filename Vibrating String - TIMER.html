@@ -1,0 +1,276 @@
+
+<!doctype= html>
+
+<html>
+<head>
+
+
+  <title>Vibrating String</title>
+
+<body onload="start_sim()">
+
+<div style="float: left; padding-right: 20px;">
+	<!-- <p>&omega; = <span id="Slideromega">7.5</span> rad/s </p><input id="omega" type="range" value="7.5" step="0.1" min="0" max="7.5" onInput="OmegaChange(this.value)" onmouseup="start_sim()"> -->
+	<!-- <p>k = <span id="SliderStiffness">10</span> N/m </p><input id="k" type="range" step="1" value="10" min="0" max="20" onInput="RadiusChange(this.value)" onmouseup="start_sim()">
+	<p>m = <span id="SliderMass">4</span> kg </p><input id="m" type="range" value="4" step="1" min="1" max="8" onInput="MassChange(this.value)" onmouseup="start_sim()">
+	<br><br> -->
+
+</div>
+		<canvas id="myCanvas" width="502" height="300" style="border:1px solid #d3d3d3; float: left;"></canvas>
+  <script>
+
+function OmegaChange(val) {
+	document.getElementById('Slideromega').innerHTML = val;
+}
+
+// function RadiusChange(val) {
+// 	document.getElementById('SliderStiffness').innerHTML = val;
+// }
+
+// function MassChange(val) {
+// 	document.getElementById('SliderMass').innerHTML = val;
+// }
+
+var ctx = getCanvas();
+
+
+var myinterval;
+var ctx = getCanvas();
+var dt = 0.005; // in seconds
+
+//scale is 50 pixles per meter
+var scale = 60 // L = 502 * 0.6 / 60 = 5 meters. C = sqrt(T/rho) = sqrt(40/10) = 2
+var canvasheight = document.getElementById('myCanvas').height / scale //canvasheight in meters
+var canvaswidth = document.getElementById('myCanvas').width / scale // canvaswidth in meters
+
+var timer;
+
+var a = [];
+var v = [];
+var y = [];
+var yold = [];
+var N;
+var L;
+var A;
+var h;
+var w;
+var T;
+var rho;
+
+function start_sim(){
+	clearInterval(myinterval);
+//inputs and geometry
+timer = 0;
+w = 15; //oporating at 4th natural frequency
+
+
+
+N =200;  // There are actually N+1 points (since array starts at 0). So if N = 5, then there are 6 points. 
+T = 161; //time to complete full loop is 2.5s. 
+rho = 10; // speed of save should be sqrt(T/rho)
+
+// for (i = 0; i <= N;  i++) {
+// 	a[i] = 0;
+// 	v[i] = 0;
+// 	y[i] = 0;
+// }
+
+for (i = 0; i <= N;  i++) {
+	a[i] = 0;
+	v[i] = 0;
+	y[i] = 0;
+	yold[i] = 0;
+}
+
+//y[1] = 0.02 //test
+
+L = 0.6*canvaswidth;
+A = 15 / (N);  
+h = L / (N);
+
+y[1] = A;  //initial condition of first bit of rope just to make thing move. 
+yold[1] = A;
+
+	myinterval = setInterval(function(){simulate_calcs()}, dt * 1000)
+}
+
+
+
+
+function simulate_calcs() {
+var ctx=getCanvas();
+
+ctx.clearRect(0,0,canvaswidth*scale,canvasheight*scale);
+
+	timer = timer + dt;
+	ctx.beginPath();
+	ctx.font = '16px Calibri';
+	ctx.fillStyle = 'black';
+	ctx.fillText("Time: " + Math.round(timer*10)/10 + " s", 10, 20);
+	ctx.closePath();
+	ctx.fill();
+
+
+
+	ctx.moveTo(0.2*canvaswidth*scale + h*0*scale, 0.5*canvasheight*scale - y[0]*scale);  //first point on line (always 0)
+	ctx.lineTo(0.2*canvaswidth*scale + h*1*scale, 0.5*canvasheight*scale - y[1]*scale);  //line from point 0 to point 1 is defined by me so no need to calculate.
+
+	y[0] = 0;
+	if(timer < Math.PI/w) {
+		y[1] = A* Math.sin(w*timer);
+	}
+	//y[1] = A* Math.sin(w*timer);
+	y[N] = 0;
+
+	yold[1] = y[1];
+
+	for (i = 2; i <= N-1; i++) { 
+
+		yold[i] = y[i];  //yold is necessary for a[i] to work.
+		a[i] = (T/(rho*h*h)) * (y[i+1] - 2*y[i] + yold[i-1]);
+		v[i] = v[i] + a[i]*dt;
+		y[i] = y[i] + v[i]*dt;
+
+		ctx.lineTo(0.2*canvaswidth*scale + h*i*scale, 0.5*canvasheight*scale - y[i]*scale);
+
+	}
+
+	ctx.lineTo(0.2*canvaswidth*scale + h*N*scale, 0.5*canvasheight*scale - y[N]*scale); //connecting last point (always 0)
+	ctx.stroke();
+
+
+	//draws the walls
+	drawRectangleSlant(0.2*canvaswidth - .05*canvaswidth, canvasheight/3, 0.05*canvaswidth, canvasheight/3, 0);
+	drawRectangleSlant(0.8*canvaswidth, canvasheight/3, 0.05*canvaswidth, canvasheight/3, 0)
+
+	if (timer > 10) {
+		start_sim();
+	}
+
+
+
+}
+
+
+
+
+function getCanvas() {
+	var c = document.getElementById("myCanvas");
+	return c.getContext("2d");
+} 
+
+function drawRectangle( x, y,  width, height) {
+
+	ctx.beginPath();
+	ctx.rect(x * scale, y * scale, width * scale, height * scale);
+	ctx.stroke();
+}
+
+function drawLine(x1,y1,x2,y2) {
+
+	ctx.beginPath();
+	ctx.moveTo(x1 * scale,y1 * scale);
+	ctx.lineTo(x2 * scale,y2 * scale);
+	ctx.stroke();
+}
+
+function drawArrowLarge(x,y,x_tip,y_tip,colour) {
+
+	var theta = Math.atan((y_tip - y) / (x_tip - x));
+	if (x_tip - x < 0) {
+    theta = theta + Math.PI;
+} else { 
+    theta = theta;
+}
+	ctx.beginPath();
+	ctx.moveTo(x * scale, y * scale);
+	ctx.lineTo(x_tip * scale, y_tip * scale);
+	ctx.lineTo(scale*x_tip - scale*0.3 * Math.sin(0.25 * Math.PI - theta), scale*y_tip - scale*0.3 * Math.cos(0.25 * Math.PI - theta));
+	ctx.moveTo(x_tip * scale, y_tip * scale);
+	ctx.lineTo(scale*x_tip - scale*0.3 * Math.cos(0.25 * Math.PI - theta), scale*y_tip + scale*0.3 * Math.sin(0.25 * Math.PI - theta));
+	ctx.stroke();
+}
+
+function drawArrowSmall(x,y,x_tip,y_tip) {
+
+	var theta = Math.atan((y_tip - y) / (x_tip - x));
+		if (x_tip - x < 0) {
+	    theta = theta + Math.PI;
+	} else { 
+	    theta = theta;
+	}
+	ctx.beginPath();
+	ctx.moveTo(x * scale, y * scale);
+	ctx.lineTo(x_tip * scale, y_tip * scale);
+	ctx.lineTo(scale*x_tip - scale*0.15 * Math.sin(Math.PI/3 - theta), scale*y_tip - scale*0.15 * Math.cos(Math.PI/3 - theta));
+	ctx.moveTo(x_tip * scale, y_tip * scale);
+	ctx.lineTo(scale*x_tip - scale*0.15 * Math.cos(Math.PI/6 - theta), scale*y_tip + scale*0.15 * Math.sin(Math.PI/6 - theta));
+	ctx.stroke();
+}
+
+function drawBall(x1,y1,r) {
+
+	ctx.beginPath();
+	ctx.arc(x1 * scale,y1 * scale,r * scale,0,2*Math.PI);
+	ctx.stroke();
+}
+
+function spring(x_1,y_1,x_2,y_2,n) {
+
+	var h = 10;
+	var x1 = x_1 * scale;
+	var x2 = x_2 * scale;
+	var y1 = y_1 * scale;
+	var y2 = y_2 * scale;
+	var theta = Math.atan((y1-y2)/(x2-x1));
+	var d = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1))/(2+4*n);
+	var gamma = Math.atan(h/(2*d));
+
+
+	if (x2-x1 < 0) {
+	    theta = theta + Math.PI;
+	} else { 
+	    theta = theta;
+	}
+
+	ctx.beginPath();
+	//first line of spring
+	ctx.moveTo(x1,y1);
+	ctx.lineTo(x1+d*Math.cos(theta), y1-d*Math.sin(theta))
+	ctx.lineTo(x1+d*Math.cos(theta)+Math.sqrt(d*d+h*h/4)*Math.cos(gamma-theta), y1-d*Math.sin(theta)+Math.sqrt(d*d+h*h/4)*Math.sin(gamma-theta));
+	//last line of spring
+	ctx.moveTo(x2,y2);
+	ctx.lineTo(x2-d*Math.cos(theta), y2+d*Math.sin(theta));
+	ctx.lineTo(x2-d*Math.cos(theta)-Math.sqrt(d*d+h*h/4)*Math.cos(gamma-theta), y2+d*Math.sin(theta)-Math.sqrt(d*d+h*h/4)*Math.sin(gamma-theta));
+	//spring
+	ctx.moveTo(x1+d*Math.cos(theta)+Math.sqrt(d*d+h*h/4)*Math.cos(gamma-theta), y1-d*Math.sin(theta)+Math.sqrt(d*d+h*h/4)*Math.sin(gamma-theta));
+	for (i = 1; i < 2*n; i++) {
+    ctx.lineTo(x1+d*Math.cos(theta)+Math.sqrt(d*d+h*h/4)*Math.cos(gamma-theta)+(0.25+0.5*i-0.25*(Math.pow(-1,i)))*2*Math.sqrt(d*d+h*h/4)*Math.cos(gamma+theta)+(-0.25+0.5*i+0.25*(Math.pow(-1,i)))*2*Math.sqrt(d*d+h*h/4)*Math.cos(gamma-theta), y1-d*Math.sin(theta)+Math.sqrt(d*d+h*h/4)*Math.sin(gamma-theta)-(0.25+0.5*i-0.25*(Math.pow(-1,i)))*2*Math.sqrt(d*d+h*h/4)*Math.sin(gamma+theta)+(-0.25+0.5*i+0.25*(Math.pow(-1,i)))*2*Math.sqrt(d*d+h*h/4)*Math.sin(gamma-theta));
+	}
+	ctx.lineWidth = 1;
+	ctx.stroke();
+}
+
+function drawRectangleSlant(x1, y1, L, t, theta) {
+
+	ctx.beginPath();
+	var gr = ctx.createLinearGradient(scale * x1, scale * y1, scale * (x1 + L*Math.cos(theta)), scale * (y1 + L*Math.sin(theta)));
+	gr.addColorStop(0,"rgba(245,201,63,0.8)");
+	gr.addColorStop(0.5, "rgba(245,201,63,0.8)");
+	gr.addColorStop(1,"rgba(245,201,63,0.8)");
+	ctx.fillStyle = gr;
+
+	ctx.moveTo(scale * x1, scale * y1);
+	ctx.lineTo(scale * (x1 + L * Math.cos(theta)), scale * (y1 + L * Math.sin(theta)));
+	ctx.lineTo(scale * (x1 + L * Math.cos(theta) - t * Math.sin(theta)), scale * (y1 + L * Math.sin(theta) + t * Math.cos(theta)));
+	ctx.lineTo(scale * (x1 - t * Math.sin(theta)), scale * (y1 + t * Math.cos(theta)));
+	ctx.lineTo(scale * x1, scale * y1);
+	//ctx.stroke();
+
+	ctx.fill();
+	ctx.closePath();
+}
+
+  </script>
+</body>
+</html>
